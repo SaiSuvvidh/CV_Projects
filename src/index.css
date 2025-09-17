@@ -1,0 +1,63 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+  
+  body {
+    background-image: 
+      linear-gradient(90deg, rgba(139,90,60,0.02) 50%, transparent 50%),
+      linear-gradient(rgba(139,90,60,0.01) 50%, transparent 50%);
+    background-size: 30px 30px, 30px 30px;
+    transition: background-color 0.2s ease-in-out;
+  }
+  
+  .dark body {
+    background-image: 
+      linear-gradient(90deg, rgba(212,175,55,0.02) 50%, transparent 50%),
+      linear-gradient(rgba(212,175,55,0.01) 50%, transparent 50%);
+  }
+}
+
+@layer components {
+  .wood-texture {
+    background-image: 
+      linear-gradient(90deg, rgba(139,90,60,0.03) 50%, transparent 50%),
+      linear-gradient(rgba(139,90,60,0.02) 50%, transparent 50%);
+    background-size: 20px 20px, 20px 20px;
+  }
+  
+  .dark .wood-texture {
+    background-image: 
+      linear-gradient(90deg, rgba(212,175,55,0.03) 50%, transparent 50%),
+      linear-gradient(rgba(212,175,55,0.02) 50%, transparent 50%);
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-wood-light dark:bg-wood-dark;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-wood-medium dark:bg-wood-medium-dark rounded;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-wood-dark dark:bg-wood-light-dark;
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition-property: background-color, border-color, color, box-shadow;
+  transition-duration: 0.2s;
+  transition-timing-function: ease-in-out;
+}
