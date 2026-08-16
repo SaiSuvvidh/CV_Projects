@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Ninja</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Load a Google Font for the game -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+
+    <style>
+        /* Custom styles for the game */
+        body {
+            font-family: 'VT323', monospace;
+            background-color: #0f172a; /* Tailwind 'slate-900' */
+            color: #f1f5f9; /* Tailwind 'slate-100' */
+            /* overflow: hidden; --- Removed this rule to allow scrolling */
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 600px;
+            height: 80vh; /* 80% of the viewport height */
+            background-color: #1e293b; /* Tailwind 'slate-800' */
+            border: 4px solid #334155; /* Tailwind 'slate-700' */
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden; /* Words will be clipped if they go outside */
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        .word {
+            position: absolute;
+            color: #e2e8f0; /* Tailwind 'slate-200' */
+            font-size: 1.75rem; /* 28px */
+            padding: 4px 8px;
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+            white-space: nowrap; /* Prevent word wrapping */
+            user-select: none; /* Prevent text selection */
+            transition: top 0.1s linear; /* Smooth movement */
+        }
+        
+        .word.highlight {
+            background-color: #f59e0b; /* Tailwind 'amber-500' */
+            color: #1e293b;
+        }
+
+        /* Custom input focus */
+        #typing-input:focus {
+            border-color: #f59e0b; /* Tailwind 'amber-500' */
+            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
+            outline: none;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <!-- Added 'relative' class here to contain the absolute 'game-over-container' -->
+    <div class="w-full max-w-3xl text-center relative">
+        <h1 class="text-6xl font-bold text-white mb-4">Typing Ninja</h1>
+        
+        <!-- Game Stats -->
+        <div class="flex justify-around w-full max-w-lg mx-auto mb-4 text-3xl">
+            <div>
+                Score: <span id="score" class="text-amber-400">0</span>
+            </div>
+            <div>
+                Lives: <span id="lives" class="text-red-500">5</span>
+            </div>
+            <div>
+                Level: <span id="level" class="text-cyan-400">1</span>
+            </div>
+        </div>
+
+        <!-- Game Area -->
+        <div id="game-container" class="mx-auto">
+            <!-- Words will be dynamically added here -->
+        </div>
+
+        <!-- Input Field -->
+        <div class="mt-4">
+            <input 
+                type="text" 
+                id="typing-input" 
+                class="w-full max-w-lg p-3 text-3xl text-center bg-slate-700 border-2 border-slate-600 rounded-lg text-white"
+                placeholder="Type here..."
+                disabled 
+            >
+        </div>
+
+        <!-- Start Button -->
+        <button id="start-btn" class="mt-6 px-10 py-4 text-3xl font-bold text-slate-900 bg-amber-400 rounded-lg shadow-lg hover:bg-amber-300 transition-all transform hover:scale-105">
+            Start Game
+        </button>
+
+        <!-- Game Over Screen (Hidden by default) -->
+        <div id="game-over-container" class="absolute inset-0 bg-black bg-opacity-80 flex-col items-center justify-center rounded-lg hidden">
+            <h2 class="text-6xl text-red-500 font-bold">Game Over!</h2>
+            <p class="text-4xl text-white mt-4">Final Score: <span id="final-score" class="text-amber-400">0</span></p>
+            <button id="restart-btn" class="mt-8 px-10 py-4 text-3xl font-bold text-slate-900 bg-amber-400 rounded-lg shadow-lg hover:bg-amber-300 transition-all transform hover:scale-105">
+                Play Again
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const gameContainer = document.getElementById('game-container');
+        const scoreDisplay = document.getElementById('score');
+        const livesDisplay = document.getElementById('lives');
+        const levelDisplay = document.getElementById('level');
+        const inputField = document.getElementById('typing-input');
+        const startBtn = document.getElementById('start-btn');
+        const gameOverContainer = document.getElementById('game-over-container');
+        const finalScoreDisplay = document.getElementById('final-score');
+        const restartBtn = document.getElementById('restart-btn');
+
+        // --- Game Words ---
+        // A larger list is better for variety
+        const WORD_LIST = [
+            'ninja', 'katana', 'shuriken', 'dojo', 'sensei', 'sushi', 'karate', 'tokyo',
+            'bushido', 'samurai', 'zen', 'haiku', 'kimono', 'bonsai', 'koi', 'ramen',
+            'geisha', 'fuji', 'kyoto', 'osaka', 'honda', 'sony', 'sega', 'nintendo',
+            'mario', 'zelda', 'sonic', 'java', 'script', 'html', 'css', 'python', 'code',
+            'react', 'angular', 'vue', 'node', 'git', 'game', 'dev', 'pixel', 'loop',
+            'function', 'variable', 'array', 'object', 'class', 'const', 'let', 'var',
+            'document', 'window', 'event', 'click', 'key', 'down', 'press', 'type', 'fast'
+        ];
+
+        // --- Game State ---
+        let score = 0;
+        let lives = 5;
+        let level = 1;
+        let gameActive = false;
+        let wordsOnScreen = []; // Array to store { word, element, y }
+        let gameInterval;
+        let wordAddInterval;
+
+        // --- Game Settings ---
+        let initialSpeed = 1.5; // Pixels per game loop tick
+        let speed = initialSpeed;
+        const gameTickRate = 50; // Milliseconds (20 times a second)
+        let initialWordInterval = 2000; // Milliseconds
+        let wordInterval = initialWordInterval;
+        const levelUpScore = 10; // Score needed to level up
+
+        // --- Functions ---
+
+        /**
+         * Initializes and starts the game
+         */
+        function startGame() {
+            // Reset state
+            score = 0;
+            lives = 5;
+            level = 1;
+            speed = initialSpeed;
+            wordInterval = initialWordInterval;
+            gameActive = true;
+            wordsOnScreen = [];
+
+            // Reset UI
+            gameContainer.innerHTML = ''; // Clear all word elements
+            scoreDisplay.textContent = score;
+            livesDisplay.textContent = lives;
+            levelDisplay.textContent = level;
+            inputField.disabled = false;
+            inputField.value = '';
+            inputField.focus();
+            startBtn.classList.add('hidden');
+            gameOverContainer.classList.add('hidden');
+            gameOverContainer.classList.remove('flex'); // Ensure it's not flex
+
+            // Start game loops
+            gameInterval = setInterval(gameLoop, gameTickRate);
+            wordAddInterval = setInterval(addNewWord, wordInterval);
+        }
+
+        /**
+         * The main game loop, responsible for moving words and checking game state
+         */
+        function gameLoop() {
+            if (!gameActive) return;
+            moveWords();
+            checkGameOver();
+        }
+
+        /**
+         * Moves all words on the screen down by the current 'speed'
+         */
+        function moveWords() {
+            const gameHeight = gameContainer.clientHeight;
+            
+            // We iterate backwards because we might remove elements
+            for (let i = wordsOnScreen.length - 1; i >= 0; i--) {
+                const wordObj = wordsOnScreen[i];
+                
+                // Update position
+                wordObj.y += speed;
+
+                // Check for collision with the bottom
+                if (wordObj.y + wordObj.element.clientHeight > gameHeight) {
+                    removeWord(wordObj, i);
+                    updateLives(lives - 1);
+                } else {
+                    wordObj.element.style.top = `${wordObj.y}px`;
+                }
+            }
+        }
+
+        /**
+         * Adds a new random word to the top of the screen
+         */
+        function addNewWord() {
+            if (!gameActive) return;
+
+            const word = WORD_LIST[Math.floor(Math.random() * WORD_LIST.length)];
+            const wordEl = document.createElement('div');
+            wordEl.classList.add('word');
+            wordEl.textContent = word;
+
+            // Calculate random horizontal position
+            // We measure the element *after* setting its content
+            gameContainer.appendChild(wordEl); // Add to DOM to measure
+            const wordWidth = wordEl.clientWidth;
+            const gameWidth = gameContainer.clientWidth;
+            // Ensure word width is not wider than game width (can happen on fast resize)
+            if (wordWidth >= gameWidth) {
+                wordEl.remove(); // Don't add word if it's too wide
+                return;
+            }
+            const randomX = Math.floor(Math.random() * (gameWidth - wordWidth));
+
+            wordEl.style.left = `${randomX}px`;
+            wordEl.style.top = `0px`;
+
+            const wordObj = {
+                word: word,
+                element: wordEl,
+                y: 0
+            };
+
+            wordsOnScreen.push(wordObj);
+        }
+
+        /**
+         * Handles user typing input
+         */
+        function handleTyping(e) {
+            if (!gameActive) return;
+
+            const typedValue = e.target.value.trim();
+            if (typedValue === '') {
+                // Clear any highlights if input is empty
+                wordsOnScreen.forEach(obj => obj.element.classList.remove('highlight'));
+                return;
+            }
+
+            let foundMatch = false;
+
+            // Check for a complete match
+            for (let i = wordsOnScreen.length - 1; i >= 0; i--) {
+                const wordObj = wordsOnScreen[i];
+                if (wordObj.word === typedValue) {
+                    removeWord(wordObj, i);
+                    updateScore(score + wordObj.word.length); // Score based on word length
+                    e.target.value = ''; // Clear input
+                    foundMatch = true;
+                    break; // Exit loop once a match is found
+                }
+            }
+            
+            // If no full match, highlight partial matches
+            if (!foundMatch) {
+                 wordsOnScreen.forEach(obj => {
+                    if (obj.word.startsWith(typedValue)) {
+                        obj.element.classList.add('highlight');
+                    } else {
+                        obj.element.classList.remove('highlight');
+                    }
+                });
+            } else {
+                // Clear all highlights after a successful match
+                wordsOnScreen.forEach(obj => obj.element.classList.remove('highlight'));
+            }
+        }
+
+        /**
+         * Removes a word from the screen and the game state
+         */
+        function removeWord(wordObj, index) {
+            wordObj.element.remove(); // Remove from DOM
+            wordsOnScreen.splice(index, 1); // Remove from array
+        }
+
+        /**
+         * Updates the score and checks for level up
+         */
+        function updateScore(newScore) {
+            score = newScore;
+            scoreDisplay.textContent = score;
+
+            // Check for level up
+            const newLevel = Math.floor(score / levelUpScore) + 1;
+            if (newLevel > level) {
+                levelUp(newLevel);
+            }
+        }
+
+        /**
+         * Updates the lives display
+         */
+        function updateLives(newLives) {
+            lives = newLives;
+            livesDisplay.textContent = lives;
+        }
+
+        /**
+         * Handles leveling up
+         */
+        function levelUp(newLevel) {
+            level = newLevel;
+            levelDisplay.textContent = level;
+            
+            // Increase difficulty
+            speed += 0.5; // Increase falling speed
+            wordInterval = Math.max(500, wordInterval * 0.9); // Increase word frequency (faster)
+
+            // Clear and restart the word adding interval
+            clearInterval(wordAddInterval);
+            wordAddInterval = setInterval(addNewWord, wordInterval);
+        }
+
+        /**
+         * Checks if the game should end
+         */
+        function checkGameOver() {
+            if (lives <= 0) {
+                endGame();
+            }
+        }
+
+        /**
+         * Ends the game and shows the game over screen
+         */
+        function endGame() {
+            gameActive = false;
+            
+            // Stop game loops
+            clearInterval(gameInterval);
+            clearInterval(wordAddInterval);
+
+            // Show game over screen
+            finalScoreDisplay.textContent = score;
+            gameOverContainer.classList.remove('hidden');
+            gameOverContainer.classList.add('flex'); // Use flex to center
+            
+            // Disable input
+            inputField.disabled = true;
+            inputField.value = '';
+        }
+
+        // --- Event Listeners ---
+        startBtn.addEventListener('click', startGame);
+        restartBtn.addEventListener('click', startGame);
+        inputField.addEventListener('input', handleTyping);
+
+    </script>
+</body>
+</html>
+
