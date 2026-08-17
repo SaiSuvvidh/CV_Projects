@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ping Pong with AI</title>
+    <!-- Load Tailwind CSS for styling the page -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load a retro game font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    
+    <style>
+        /* Apply the game font */
+        body, button {
+            font-family: 'Press Start 2P', cursive;
+        }
+        /* Ensure canvas scales correctly on mobile */
+        canvas {
+            max-width: 100%;
+            height: auto;
+            /* Cursors for the game */
+            cursor: none; 
+        }
+        /* Basic styling for the game container */
+        .game-container {
+            width: 100%;
+            max-width: 800px; /* Max width of the game area */
+            aspect-ratio: 800 / 500; /* Maintain aspect ratio */
+            margin: 0 auto;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 flex flex-col items-center justify-center min-h-screen p-4 overflow-hidden">
+
+    <h1 class="text-3xl sm:text-4xl text-cyan-300 mb-4">Sparkle Pong</h1>
+
+    <!-- Score Display -->
+    <div class="flex justify-between w-full max-w-[800px] text-3xl mb-2 px-2">
+        <span id="aiScore" class="text-red-400">0</span>
+        <span id="playerScore" class="text-green-400">0</span>
+    </div>
+
+    <!-- Game Canvas Container -->
+    <div class="game-container rounded-lg shadow-2xl overflow-hidden border-2 border-cyan-500">
+        <canvas id="gameCanvas"></canvas>
+    </div>
+
+    <!-- Game Controls and Messages -->
+    <div class="mt-4 text-center">
+        <button id="startButton" class="bg-cyan-500 hover:bg-cyan-400 text-gray-900 py-3 px-6 rounded-lg shadow-lg transition duration-200">Start Game</button>
+        <p id="message" class="text-yellow-300 text-lg mt-4 h-6"></p>
+    </div>
+
+    <script>
+        window.onload = function() {
+            // --- 1. SETUP ---
+            const canvas = document.getElementById('gameCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Set canvas resolution. This is the internal resolution.
+            // CSS will scale this canvas down to fit the container.
+            canvas.width = 800;
+            canvas.height = 500;
+
+            // UI Elements
+            const startButton = document.getElementById('startButton');
+            const messageEl = document.getElementById('message');
+            const playerScoreEl = document.getElementById('playerScore');
+            const aiScoreEl = document.getElementById('aiScore');
+
+            // Game State
+            let gameRunning = false;
+            const WINNING_SCORE = 7;
+
+            // Game Objects
+            const paddleWidth = 10;
+            const paddleHeight = 100;
+
+            let player = {
+                x: canvas.width - paddleWidth - 20,
+                y: canvas.height / 2 - paddleHeight / 2,
+                width: paddleWidth,
+                height: paddleHeight,
+                color: '#34d399', // Green-400
+                score: 0
+            };
+
+            let ai = {
+                x: 20,
+                y: canvas.height / 2 - paddleHeight / 2,
+                width: paddleWidth,
+                height: paddleHeight,
+                color: '#f87171', // Red-400
+                score: 0,
+                speed: 4.5 // How fast the AI paddle moves
+            };
+
+            let ball = {
+                x: canvas.width / 2,
+                y: canvas.height / 2,
+                radius: 8,
+                speed: 6,
+                dx: 6,
+                dy: 6,
+                color: '#f0f9ff' // Light blue
+            };
+
+            // Sparkle background
+            let sparkles = [];
+            const sparkleCount = 100;
+
+            // --- 2. DRAWING FUNCTIONS ---
+
+            function drawRect(x, y, w, h, color) {
+                ctx.fillStyle = color;
+                ctx.fillRect(x, y, w, h);
+            }
+
+            function drawCircle(x, y, r, color) {
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(x, y, r, 0, Math.PI * 2, false);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            function drawNet() {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+                ctx.lineWidth = 4;
+                ctx.setLineDash([10, 10]);
+                ctx.beginPath();
+                ctx.moveTo(canvas.width / 2, 0);
+                ctx.lineTo(canvas.width / 2, canvas.height);
+                ctx.stroke();
+                ctx.setLineDash([]); // Reset line dash
+            }
+
+            // --- 3. SPARKLE BACKGROUND LOGIC ---
+
+            function createSparkles() {
+                sparkles = [];
+                for (let i = 0; i < sparkleCount; i++) {
+                    sparkles.push({
+                        x: Math.random() * canvas.width,
+                        y: Math.random() * canvas.height,
+                        size: Math.random() * 2 + 1,
+                        opacity: Math.random() * 0.5 + 0.2,
+                        // dOpacity (delta Opacity) controls fade in/out
+                        dOpacity: (Math.random() - 0.5) * 0.01 
+                    });
+                }
+            }
+
+            function updateAndDrawSparkles() {
+                for (let i = 0; i < sparkles.length; i++) {
+                    const s = sparkles[i];
+                    
+                    // Update opacity
+                    s.opacity += s.dOpacity;
+                    if (s.opacity <= 0.1 || s.opacity >= 0.7) {
+                        s.dOpacity *= -1; // Reverse fade direction
+                    }
+
+                    // Move sparkle
+                    s.y += 0.2; // Slowly drift down
+                    if (s.y > canvas.height) {
+                        s.y = 0;
+                        s.x = Math.random() * canvas.width;
+                    }
+                    
+                    // Draw sparkle
+                    ctx.fillStyle = `rgba(255, 255, 255, ${s.opacity})`;
+                    ctx.fillRect(s.x, s.y, s.size, s.size);
+                }
+            }
+
+            // --- 4. GAME LOGIC ---
+
+            function resetBall() {
+                ball.x = canvas.width / 2;
+                ball.y = canvas.height / 2;
+                ball.speed = 6;
+                // Give it a random starting direction
+                ball.dx = (Math.random() > 0.5 ? 1 : -1) * ball.speed;
+                ball.dy = (Math.random() > 0.5 ? 1 : -1) * (Math.random() * 3 + 2);
+            }
+
+            function moveAI() {
+                // Simple AI: tries to center its paddle on the ball's Y position
+                let targetY = ball.y;
+                let paddleCenter = ai.y + ai.height / 2;
+
+                if (paddleCenter < targetY - 10) { // -10 creates a small deadzone
+                    ai.y += ai.speed;
+                } else if (paddleCenter > targetY + 10) {
+                    ai.y -= ai.speed;
+                }
+
+                // Keep AI paddle in bounds
+                if (ai.y < 0) ai.y = 0;
+                if (ai.y + ai.height > canvas.height) ai.y = canvas.height - ai.height;
+            }
+
+            function moveBall() {
+                ball.x += ball.dx;
+                ball.y += ball.dy;
+
+                // Collision: Top/Bottom walls (as requested)
+                if (ball.y + ball.radius > canvas.height || ball.y - ball.radius < 0) {
+                    ball.dy = -ball.dy;
+                }
+
+                // Collision: Paddles
+                let paddle = (ball.x < canvas.width / 2) ? ai : player;
+                if (isColliding(ball, paddle)) {
+                    // Reverse horizontal direction
+                    ball.dx = -ball.dx;
+
+                    // Increase speed slightly
+                    ball.speed = Math.min(ball.speed * 1.05, 15); // Max speed of 15
+                    ball.dx = (ball.dx > 0 ? 1 : -1) * ball.speed;
+
+                    // --- Physics Part ---
+                    // Calculate where the ball hit the paddle (from -1.0 to 1.0)
+                    let collidePoint = (ball.y - (paddle.y + paddle.height / 2));
+                    collidePoint = collidePoint / (paddle.height / 2);
+
+                    // Adjust the Y velocity based on the collide point
+                    // Max angle is 5
+                    ball.dy = collidePoint * 5; 
+                }
+
+                // Collision: Left/Right walls (Scoring)
+                if (ball.x - ball.radius < 0) {
+                    // Player scores
+                    player.score++;
+                    resetBall();
+                } else if (ball.x + ball.radius > canvas.width) {
+                    // AI scores
+                    ai.score++;
+                    resetBall();
+                }
+
+                updateScoreUI();
+            }
+
+            function isColliding(circle, rect) {
+                // Find the closest point on the rectangle to the circle's center
+                let testX = circle.x;
+                let testY = circle.y;
+
+                if (circle.x < rect.x) testX = rect.x; // left edge
+                else if (circle.x > rect.x + rect.width) testX = rect.x + rect.width; // right edge
+                
+                if (circle.y < rect.y) testY = rect.y; // top edge
+                else if (circle.y > rect.y + rect.height) testY = rect.y + rect.height; // bottom edge
+
+                // Get distance from closest point to circle center
+                let distX = circle.x - testX;
+                let distY = circle.y - testY;
+                let distance = Math.sqrt((distX * distX) + (distY * distY));
+
+                return distance <= circle.radius;
+            }
+
+            function checkWin() {
+                if (player.score >= WINNING_SCORE || ai.score >= WINNING_SCORE) {
+                    gameRunning = false;
+                    messageEl.textContent = (player.score > ai.score) ? "You Win!" : "AI Wins!";
+                    startButton.textContent = "Play Again?";
+                }
+            }
+            
+            function updateScoreUI() {
+                playerScoreEl.textContent = player.score;
+                aiScoreEl.textContent = ai.score;
+            }
+
+            // --- 5. MAIN GAME LOOP ---
+
+            function update() {
+                // This is the logic loop
+                if (!gameRunning) return;
+                
+                moveAI();
+                moveBall();
+                checkWin();
+            }
+
+            function render() {
+                // This is the drawing loop
+                // Clear canvas with a solid black
+                ctx.fillStyle = '#020617'; // bg-gray-950
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                // Draw sparkles first (background)
+                updateAndDrawSparkles();
+                
+                // Draw net
+                drawNet();
+                
+                // Draw paddles
+                drawRect(player.x, player.y, player.width, player.height, player.color);
+                drawRect(ai.x, ai.y, ai.width, ai.height, ai.color);
+                
+                // Draw ball
+                drawCircle(ball.x, ball.y, ball.radius, ball.color);
+            }
+
+            function gameLoop() {
+                update(); // Update logic
+                render(); // Draw everything
+                requestAnimationFrame(gameLoop); // Loop
+            }
+
+            // --- 6. EVENT LISTENERS ---
+
+            function movePaddle(e) {
+                // Stop page from scrolling on touch
+                e.preventDefault(); 
+
+                let rect = canvas.getBoundingClientRect();
+                // Use clientY for mouse or the first touch point for touch
+                let y = (e.clientY !== undefined ? e.clientY : e.touches[0].clientY) - rect.top;
+
+                player.y = y - player.height / 2;
+
+                // Keep player paddle in bounds
+                if (player.y < 0) player.y = 0;
+                if (player.y + player.height > canvas.height) player.y = canvas.height - player.height;
+            }
+
+            // Listen for mouse movement
+            canvas.addEventListener('mousemove', movePaddle);
+            
+            // Listen for touch movement
+            canvas.addEventListener('touchmove', movePaddle);
+
+            // Start Button
+            startButton.addEventListener('click', () => {
+                player.score = 0;
+                ai.score = 0;
+                updateScoreUI();
+                gameRunning = true;
+                messageEl.textContent = '';
+                startButton.textContent = 'Restart Game';
+                resetBall();
+            });
+
+            // --- 7. INITIALIZE ---
+            createSparkles();
+            render(); // Draw initial frame
+            gameLoop(); // Start the loop
+        };
+    </script>
+</body>
+</html>
