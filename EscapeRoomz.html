@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Escape Room: Critical Fail</title>
+    <!-- Load Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Google Font: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+    <style>
+        /* Base styles */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+
+        /* Custom animation for incorrect answers */
+        @keyframes shake-error {
+            0%, 100% { transform: translateX(0); }
+            10%, 30%, 50%, 70%, 90% { transform: translateX(-10px); }
+            20%, 40%, 60%, 80% { transform: translateX(10px); }
+        }
+        .shake-error {
+            animation: shake-error 0.6s cubic-bezier(.36,.07,.19,.97) both;
+        }
+
+        /* Custom animation for correct answers */
+        @keyframes shake-success {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+        }
+        .shake-success {
+            animation: shake-success 0.4s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
+
+    <!-- Main Game Container -->
+    <main id="game-box" class="bg-gray-800 w-full max-w-md p-6 sm:p-8 rounded-2xl shadow-2xl border border-gray-700 transition-all duration-300">
+        
+        <!-- Header -->
+        <h1 class="text-3xl font-black text-center text-lime-400 uppercase tracking-wider">
+            Critical Fail
+        </h1>
+        <p class="text-center text-gray-400 mb-6">Escape Room Challenge</p>
+
+        <!-- Progress Bar -->
+        <div class="bg-gray-700 rounded-full h-2.5 w-full mb-6 overflow-hidden">
+            <div id="progress-bar-fill" class="bg-lime-500 h-2.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+        </div>
+
+        <!-- Puzzle Content Area -->
+        <div id="puzzle-container">
+            <h2 id="puzzle-title" class="text-2xl font-bold text-white mb-2">
+                Loading Security Protocol...
+            </h2>
+            <p id="puzzle-description" class="text-gray-300 mb-4">
+                Please wait.
+            </p>
+        </div>
+
+        <!-- Input Area (Dynamically filled) -->
+        <div id="input-area" class="mb-4">
+            <!-- Puzzles will inject inputs here -->
+        </div>
+
+        <!-- Submit Button (for text inputs) -->
+        <button id="submit-btn" class="w-full bg-lime-500 text-gray-900 font-bold py-3 px-4 rounded-lg hover:bg-lime-400 focus:outline-none focus:ring-4 focus:ring-lime-700 transition-all duration-200 shadow-lg">
+            Bypass
+        </button>
+
+        <!-- Feedback Message Area -->
+        <p id="message-area" class="text-center mt-4 h-6 text-sm font-medium">
+            <!-- Messages like 'Correct!' or 'Incorrect.' will appear here -->
+        </p>
+
+    </main>
+
+    <script>
+        // --- DOM Elements ---
+        const gameBox = document.getElementById('game-box');
+        const progressBarFill = document.getElementById('progress-bar-fill');
+        const puzzleTitle = document.getElementById('puzzle-title');
+        const puzzleDescription = document.getElementById('puzzle-description');
+        const inputArea = document.getElementById('input-area');
+        const submitBtn = document.getElementById('submit-btn');
+        const messageArea = document.getElementById('message-area');
+
+        // --- Game Puzzles ---
+        // Puzzles are sequential and interconnected.
+        const puzzles = [
+            {
+                id: 1,
+                title: "Protocol 1: The Watchman",
+                description: "I have cities, but no houses. I have mountains, but no trees. I have water, but no fish. What am I?",
+                type: "text",
+                answer: "A MAP"
+            },
+            {
+                id: 2,
+                title: "Protocol 2: The Pattern",
+                description: "Observe the sequence and provide the next logical number: <br><strong>1, 4, 9, 16, ?</strong>",
+                type: "text",
+                answer: "25"
+            },
+            {
+                id: 3,
+                title: "Protocol 3: The Lateral",
+                description: "A GREEN house is made of green bricks. A BLUE house is made of blue bricks. A RED house is made of red bricks. What is a <strong>GREENHOUSE</strong> made of?",
+                type: "buttons",
+                options: ["Green Bricks", "Wood", "Glass", "Plants"],
+                answer: "Glass"
+            },
+            {
+                id: 4,
+                title: "Protocol 4: The Wordlock",
+                description: "What word is always spelled incorrectly in every single dictionary?",
+                type: "text",
+                answer: "INCORRECTLY"
+            },
+            {
+                id: 5,
+                title: "Final Protocol: The Master Key",
+                description: "The system is locked. To escape, combine the answers from the previous protocols: <br><strong>[First letter of Answer 1]</strong> + <strong>[Answer 2]</strong> + <strong>[First letter of Answer 3]</strong>",
+                type: "text",
+                answer: "M25G" // MAP (M) + 25 + GLASS (G)
+            }
+        ];
+
+        // --- Game State ---
+        let currentPuzzle = 0;
+        let userAnswers = [];
+
+        // --- Game Logic ---
+
+        /**
+         * Loads a puzzle onto the screen based on the current index.
+         * @param {number} puzzleIndex - The index of the puzzle to load.
+         */
+        function loadPuzzle(puzzleIndex) {
+            // Check if game is won
+            if (puzzleIndex >= puzzles.length) {
+                showVictory();
+                return;
+            }
+
+            const puzzle = puzzles[puzzleIndex];
+
+            // Update UI
+            puzzleTitle.textContent = puzzle.title;
+            puzzleDescription.innerHTML = puzzle.description;
+            messageArea.textContent = "";
+            messageArea.className = "text-center mt-4 h-6 text-sm font-medium";
+            inputArea.innerHTML = ""; // Clear previous input
+
+            // Update Progress Bar
+            const progressPercent = (puzzleIndex / puzzles.length) * 100;
+            progressBarFill.style.width = `${progressPercent}%`;
+
+            // Create input based on puzzle type
+            if (puzzle.type === "text") {
+                const input = document.createElement('input');
+                input.type = "text";
+                input.id = "puzzle-input";
+                input.placeholder = "Enter your answer...";
+                input.className = "w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-lime-500";
+                
+                // Add Enter key listener
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        handleSubmit();
+                    }
+                });
+                
+                inputArea.appendChild(input);
+                submitBtn.style.display = 'block'; // Show submit button
+            } else if (puzzle.type === "buttons") {
+                const buttonGrid = document.createElement('div');
+                buttonGrid.className = "grid grid-cols-2 gap-3";
+                
+                puzzle.options.forEach(option => {
+                    const button = document.createElement('button');
+                    button.textContent = option;
+                    button.dataset.answer = option;
+                    button.className = "w-full bg-gray-700 text-white font-medium py-3 px-4 rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200";
+                    
+                    // Button-based puzzles check answer immediately on click
+                    button.addEventListener('click', (e) => {
+                        checkAnswer(e.target.dataset.answer);
+                    });
+                    
+                    buttonGrid.appendChild(button);
+                });
+                
+                inputArea.appendChild(buttonGrid);
+                submitBtn.style.display = 'none'; // Hide submit button
+            }
+        }
+
+        /**
+         * Handles the click of the main "Bypass" (Submit) button.
+         */
+        function handleSubmit() {
+            const puzzle = puzzles[currentPuzzle];
+            if (puzzle.type === "text") {
+                const inputElement = document.getElementById('puzzle-input');
+                if (inputElement) {
+                    checkAnswer(inputElement.value);
+                }
+            }
+        }
+
+        /**
+         * Checks the user's answer against the correct answer.
+         * @param {string} userAnswer - The answer provided by the user.
+         */
+        function checkAnswer(userAnswer) {
+            const puzzle = puzzles[currentPuzzle];
+            const formattedUserAnswer = userAnswer.trim().toUpperCase();
+            const correctAnswer = puzzle.answer.toUpperCase();
+
+            if (formattedUserAnswer === correctAnswer) {
+                // --- CORRECT ---
+                messageArea.textContent = "Access Granted. Loading next protocol...";
+                messageArea.className = "text-center mt-4 h-6 text-sm font-medium text-lime-400";
+                
+                // Store the answer (we need it for the final puzzle)
+                userAnswers[currentPuzzle] = puzzle.answer; // Store the *correct* answer for consistency
+                
+                currentPuzzle++;
+                
+                // Animate and load next puzzle
+                animateBox('shake-success');
+                setTimeout(() => {
+                    loadPuzzle(currentPuzzle);
+                }, 1500); // Wait 1.5s before loading next
+
+            } else {
+                // --- INCORRECT ---
+                messageArea.textContent = "Access Denied. System integrity compromised.";
+                messageArea.className = "text-center mt-4 h-6 text-sm font-medium text-red-400";
+                
+                // Animate box
+                animateBox('shake-error');
+                
+                // Clear text input on wrong answer
+                const inputElement = document.getElementById('puzzle-input');
+                if (inputElement) {
+                    inputElement.value = "";
+                }
+            }
+        }
+
+        /**
+         * Displays the victory/completion screen.
+         */
+        function showVictory() {
+            puzzleTitle.textContent = "SYSTEM BYPASSED";
+            puzzleDescription.innerHTML = "Congratulations, agent. You have successfully navigated the firewall. You are free... for now.";
+            
+            // Clear inputs
+            inputArea.innerHTML = "";
+            submitBtn.style.display = 'none';
+
+            // Show success message
+            messageArea.textContent = "All puzzles solved!";
+            messageArea.className = "text-center mt-4 h-6 text-sm font-medium text-lime-400";
+            
+            // Fill progress bar
+            progressBarFill.style.width = `100%`;
+        }
+
+        /**
+         * Helper function to apply an animation class to the game box.
+         * @param {string} animClass - The CSS class to add.
+         */
+        function animateBox(animClass) {
+            gameBox.classList.add(animClass);
+            
+            // Remove class after animation finishes
+            setTimeout(() => {
+                gameBox.classList.remove(animClass);
+            }, 600); // Must match animation duration
+        }
+
+
+        // --- Event Listeners ---
+        submitBtn.addEventListener('click', handleSubmit);
+        
+        // Load the first puzzle when the page is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            loadPuzzle(currentPuzzle);
+        });
+
+    </script>
+</body>
+</html>
+
