@@ -1,15 +1,124 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AI Proctoring Suite - Professional Exam Monitoring</title>
-    <meta name="description" content="Advanced AI-powered proctoring system with real-time violation detection, face tracking, audio monitoring, and comprehensive reporting.">
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎮 Game Hub</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: radial-gradient(circle at top, #1a1a1a, #000);
+      color: #fff;
+      text-align: center;
+      padding: 40px;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 30px;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px #00ffff;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 25px;
+      max-width: 1000px;
+      margin: auto;
+    }
+
+    .card {
+      background: #111;
+      padding: 25px;
+      border-radius: 15px;
+      box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+      cursor: pointer;
+      transition: transform 0.25s, background 0.3s, box-shadow 0.3s;
+    }
+
+    .card:hover {
+      transform: scale(1.05);
+      background: #1a1a1a;
+      box-shadow: 0 0 25px rgba(0, 255, 255, 0.4);
+    }
+
+    iframe {
+      width: 90%;
+      height: 80vh;
+      border: none;
+      margin-top: 30px;
+      border-radius: 10px;
+      display: none;
+      box-shadow: 0 0 25px rgba(0, 255, 255, 0.3);
+    }
+
+    .back-btn {
+      display: none;
+      margin: 20px auto;
+      padding: 12px 25px;
+      background: #00bcd4;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: background 0.3s;
+    }
+
+    .back-btn:hover {
+      background: #0097a7;
+    }
+  </style>
+</head>
+<body>
+  <h1>🎮 Welcome to the Game Hub</h1>
+
+  <div class="grid" id="gameGrid">
+    <div class="card" data-game="EscapeRoomz.html">🏚️ Escape Roomz</div>
+    <div class="card" data-game="MarioxVex.html">🍄 Mario x Vex</div>
+    <div class="card" data-game="PingPongvsAi.html">🏓 Ping Pong vs AI</div>
+    <div class="card" data-game="SpaceJam.html">🚀 SpaceJam</div>
+    <div class="card" data-game="TypeNinja.html">⌨️ Type Ninja</div>
+    <div class="card" data-game="3dtabletennis/main.html">🏓 3D Table Tennis</div>
+    <div class="card" data-game="react">🧠 DSA Mastery Lab</div>
+  </div>
+
+  <button class="back-btn" id="backBtn">⬅ Back to Game List</button>
+  <iframe id="gameFrame"></iframe>
+
+  <script>
+    const cards = document.querySelectorAll(".card");
+    const iframe = document.getElementById("gameFrame");
+    const grid = document.getElementById("gameGrid");
+    const backBtn = document.getElementById("backBtn");
+
+    cards.forEach(card => {
+      card.addEventListener("click", () => {
+        const game = card.dataset.game;
+
+        if (game === "react") {
+          // 🔹 Auto-open the React + Vite game in new tab
+          window.open("http://localhost:8080", "_blank");
+          alert(
+            "Your DSA Mastery Lab (React + Vite) game will open in a new tab.\n\nIf it doesn’t, please run it first:\n1️⃣ Open terminal in dsa-mastery-lab-main\n2️⃣ Run: npm install\n3️⃣ Run: npm run dev"
+          );
+          return;
+        }
+
+        iframe.src = game;
+        iframe.style.display = "block";
+        grid.style.display = "none";
+        backBtn.style.display = "inline-block";
+      });
+    });
+
+    backBtn.addEventListener("click", () => {
+      iframe.src = "";
+      iframe.style.display = "none";
+      grid.style.display = "grid";
+      backBtn.style.display = "none";
+    });
+  </script>
+</body>
 </html>
